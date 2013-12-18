@@ -1,61 +1,72 @@
 /*
-  A simple RCSwitch/Ethernet/Webserver demo
-  
-  http://code.google.com/p/rc-switch/
-*/
+  Web Server
+ 
+ A simple web server that shows the value of the analog input pins.
+ using an Arduino Wiznet Ethernet shield. 
+ 
+ Circuit:
+ * Ethernet shield attached to pins 10, 11, 12, 13
+ * Analog inputs attached to pins A0 through A5 (optional)
+ 
+ created 18 Dec 2009
+ by David A. Mellis
+ modified 9 Apr 2012
+ by Tom Igoe
+ 
+ */
 
 #include <SPI.h>
 #include <Ethernet.h>
 #include <IRremote.h>
 #include <RCSwitch.h>
 
-// Ethernet configuration
-byte mac[] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED }; // MAC Address
-byte ip[] = { 192,168,0, 41 };                        // IP Address
-EthernetServer server(80);                           // Server Port 80
+// Enter a MAC address and IP address for your controller below.
+// The IP address will be dependent on your local network:
+byte mac[] = { 
+  0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0x01 };
+//IPAddress ip(192,168,0, 177);
+
 
 int paramCount = 0;
-char keys[8][32];
-char values[8][32];
+char keys[5][16];
+char values[5][16];
 
-char printBuffer[128];
+char processMessage[32]="ok";
 
-//page visit counter
-int pvCount=0;
+
+// Initialize the Ethernet server library
+// with the IP address and port you want to use 
+// (port 80 is default for HTTP):
+EthernetServer server(80);
 
 //IR 38k.
 IRsend irsend;
 
-// RCSwitch configuration
 RCSwitch mySwitch = RCSwitch();
-int RCTransmissionPin = 7;
 
-// More to do...
-// You should also modify the processCommand() and 
-// httpResponseHome() functions to fit your needs.
-
-
-
-/**
- * Setup
- */
 void setup() {
+ // Open serial communications and wait for port to open:
   Serial.begin(9600);
+   
+  while (!Serial) {
+    ; // wait for serial port to connect. Needed for Leonardo only
+  }
   
-  
-  Ethernet.begin(mac, ip);
+  // start the Ethernet connection and the server:
+  Ethernet.begin(mac);
   server.begin();
-  mySwitch.enableTransmit( RCTransmissionPin );
+  Serial.print("server is at ");
+  Serial.println(Ethernet.localIP());
+  
+  // Transmitter is connected to Arduino Pin #10  
+  mySwitch.enableTransmit(10);
+
 }
 
-/**
- * Loop
- */
+
 void loop() {
-  char* command = httpServer();
+  httpServer();
 }
-
-
 
 void parseUrl(char* s) {
 	int i = 0;
@@ -82,7 +93,7 @@ void parseUrl(char* s) {
 			i++;
 
 			currentString = keys[paramIndex];
-			//printf("%i\n", i);
+			
 		} else {
 
 			if (c == '=') {
@@ -102,16 +113,24 @@ void parseUrl(char* s) {
 	}
         //append the last string terminator
         currentString[charIndex] = '\0';
-        
+
 	paramCount = paramIndex + 1;
+
+
 }
 
 void printParam() {
-	int i = 0;
+        Serial.println("printParam:");
+  
+	int i;
+
 	for (i = 0; i < paramCount; i++) {
-		sprintf(printBuffer,"%d:%s : %s\n", i, keys[i],values[i]);
-            Serial.println(printBuffer);
+        Serial.print(keys[i]);
+    Serial.print(":");
+  Serial.println(values[i]);
+		
 	}
+
 }
 
 int getKeyIndex(const char * key){
@@ -136,15 +155,17 @@ char* getValueByKey(const char * key){
  * Command dispatcher
  */
 int processCommand(char* url) {
-  pvCount++;
   
   //no error
   int result = 0;
   
   Serial.println(url);
-  
+    
   parseUrl(url); 
+  
+  
   printParam();
+  
 //RC type: 38k,315m,433m.
   char* cmd = getValueByKey("cmd");
   
@@ -163,20 +184,52 @@ int processCommand(char* url) {
         {
           unsigned long code = strtoul (codeStr, NULL, 0);
           int bits= atoi(bitsStr);
-  //          irsend.sendNEC(code,bits);  
-          sprintf(printBuffer,"send NEC code:%lu, bits: %d\n",code,bits);          
-          Serial.println(printBuffer);    
+            irsend.sendNEC(code,bits);  
+          //sprintf(printBuffer,"send NEC code:%lu, bits: %d\n",code,bits);          
+          //Serial.println(printBuffer);    
         }else
-          result = 4;//unknown code or bits
-      }else
-        result =3;//unknow type
+        {
+          result = 1;
+          //mystrcpy(processMessage, "unknown code or bits");
+        }
+      }else{
+         result = 1;
+         //mystrcpy(processMessage, "unknow type");
+      }
     }
-    else
-      result = 2;//unknow command
+    else if(strcmp(cmd,"RCSwitch")==0)
+    {
+      char* pulseLengthStr = getValueByKey("pulseLength");
+      char* codeStr = getValueByKey("code");
+      char* bitsStr = getValueByKey("bits");
+
+      if(pulseLengthStr!=NULL && codeStr!=NULL && bitsStr!=NULL)
+      {
+        int pulseLength= atoi(pulseLengthStr);
+        unsigned long code = strtoul (codeStr, NULL, 0);
+        int bits= atoi(bitsStr);
+        
+        mySwitch.setPulseLength(pulseLength);
+        mySwitch.send(code,bits);  
+        //sprintf(printBuffer,"send NEC code:%lu, bits: %d\n",code,bits);          
+        //Serial.println(printBuffer);    
+      }else
+      {
+        result = 1;
+        //mystrcpy(processMessage, "unknown code or bits");
+      }
+      
+    }
+    else{    
+      result = 1;
+      //mystrcpy(processMessage, "unknow command");
+    }
   }
   else
-    result = 1;//no command
-  
+  {
+    result = 1;
+    //mystrcpy(processMessage, "no command");
+  }
   return result;
   
   /*
@@ -190,6 +243,22 @@ int processCommand(char* url) {
     mySwitch.switchOff(1,2);
   }
   */
+}
+
+void mystrcpy(char* dest, char* src)
+{
+  int i=0;
+  while(true)
+  {
+     char c = src[i];
+     dest[i] = c;
+     
+     if(c=='\0')
+       break;     
+    
+    i++;
+  }
+  
 }
 
 /**
@@ -212,17 +281,14 @@ void httpResponseHome(EthernetClient c) {
   c.println(        "<li><a href=\"./?1-on\">Switch #1 on</a></li>");
   c.println(        "<li><a href=\"./?1-off\">Switch #1 off</a></li>");
   c.println(    "</ul>");
-  c.println(    "<ul>");
-  c.println(        "<li><a href=\"./?2-on\">Switch #2 on</a></li>");
-  c.println(        "<li><a href=\"./?2-off\">Switch #2 off</a></li>");
-  c.println(    "</ul>");
+
   c.println(    "<hr>");
   c.println(    "<a href=\"http://code.google.com/p/rc-switch/\">http://code.google.com/p/rc-switch/</a>");
   c.println("</body>");
   c.println("</html>");
 }
 
-void httpResponse(EthernetClient c, int result) {
+void httpResponse(EthernetClient c, char* msg) {
   c.println("HTTP/1.1 200 OK");
   c.println("Content-Type: text/html");
   c.println();
@@ -235,7 +301,7 @@ void httpResponse(EthernetClient c, int result) {
   c.println("</head>");
   c.println("<body>");
   c.println(    "<p>");
-  c.println(result);
+  c.println(msg);
   c.println("</p>");
   
   //c.println(    "<p>visit counter:");
@@ -270,23 +336,31 @@ void httpResponse414(EthernetClient c) {
  * call processCommand with GET query string (everything after
  * the ? question mark in the URL).
  */
-char*  httpServer() {
+void httpServer() {
+  
   EthernetClient client = server.available();
+  
   if (client) {
-    char sReturnCommand[32];
+    char sReturnCommand[128+1];
     int nCommandPos=-1;
     sReturnCommand[0] = '\0';
     while (client.connected()) {
       if (client.available()) {
         char c = client.read();
+        Serial.print(c);
         if ((c == '\n') || (c == ' ' && nCommandPos>-1)) {
           sReturnCommand[nCommandPos] = '\0';
           if (strcmp(sReturnCommand, "\0") == 0) {
             httpResponseHome(client);
           } else {
             int result = processCommand(sReturnCommand);
+            Serial.print("result:");
+            Serial.println(result);
             //httpResponseRedirect(client);
-            httpResponse(client, result);
+            if(result==0)
+              httpResponse(client, "OK");
+            else
+              httpResponse(client, "error");
           }
           break;
         }
@@ -310,7 +384,7 @@ char*  httpServer() {
     delay(1);
     client.stop();
     
-    return sReturnCommand;
+    return;
   }
-  return '\0';
+ 
 }
