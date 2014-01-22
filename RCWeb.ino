@@ -13,6 +13,12 @@
  modified 9 Apr 2012
  by Tom Igoe
  
+ ==============separator===========
+ the limited memory drives me mad. I commented out some html output code to reduce memory usage. 
+ Otherwise the code just don't work.
+ I am not sure why the compiler does not warn me.
+ by Jack
+ 
  */
 
 #include <SPI.h>
@@ -27,12 +33,20 @@ byte mac[] = {
 //IPAddress ip(192,168,0, 177);
 
 
+//url parameters
 int paramCount = 0;
-char keys[5][16];
-char values[5][16];
+int maxParamSize = 6;
+int maxParamLength = 20;
+char keys[6][16];
+char** values;
 
-char processMessage[32]="ok";
+//execution result
+char processMessage[10]="ok";
 
+//raw data of IR signal
+//unsigned int irrawCodes[RAWBUF]; // The durations if raw
+unsigned int* irrawCodes;
+int rawCodeLen; // The length of the code
 
 // Initialize the Ethernet server library
 // with the IP address and port you want to use 
@@ -45,6 +59,18 @@ IRsend irsend;
 RCSwitch mySwitch = RCSwitch();
 
 void setup() {
+  
+  //init array  
+  values = (char**)malloc(maxParamSize * sizeof(char*));
+  for (int i = 0; i < maxParamSize-1; i++ )
+  {
+    values[i] = (char*) malloc(maxParamLength * sizeof(char));
+  }
+  //only the last param is extra long. (Use extra memory only when required.) it is for IR raw data.
+  values[maxParamSize-1] = (char*) malloc(20 * sizeof(char));
+  
+  //irrawCodes = (unsigned int*) malloc(50 * sizeof(unsigned int));
+  
  // Open serial communications and wait for port to open:
   Serial.begin(9600);
    
@@ -151,6 +177,64 @@ char* getValueByKey(const char * key){
 	else
 		return NULL;
 }
+
+/*
+convert raw data from URL to uint array
+*/
+void processIRRawData(char* rawDataStr)
+{
+  Serial.println("start process");
+  //Serial.println(rawDataStr);
+  
+  int i=0;
+  int j=0;
+  rawCodeLen=0;
+  char num[6];
+  char c;
+  int dataStrlen = strlen(rawDataStr); 
+  while(true)
+  {
+    c = rawDataStr[i];
+    //Serial.println(c);
+    
+    if(c==',' || c=='\0')
+    {
+      num[j]='\0';      
+      
+      unsigned int i_num = atoi(num);
+
+      
+      //Serial.print(rawCodeLen);
+      //Serial.print(":");
+      irrawCodes[rawCodeLen]=i_num;
+      Serial.print(irrawCodes[rawCodeLen],DEC);      
+      Serial.print(",");
+      rawCodeLen++;      
+      
+      j=0;
+      
+      if(c=='\0' )
+      {
+         break; 
+      }
+    }
+    else
+    {
+      num[j] = c;
+      j++;      
+    }   
+    
+    i++;
+  }
+  Serial.print(". codeLen:");  
+  Serial.println(rawCodeLen);
+  for(int ii=0;ii<rawCodeLen;ii++)
+          {
+            Serial.print(irrawCodes[ii],DEC);
+            Serial.print(" ");            
+          }
+}
+
 /**
  * Command dispatcher
  */
@@ -159,6 +243,7 @@ int processCommand(char* url) {
   //no error
   int result = 0;
   
+  Serial.print("url:");
   Serial.println(url);
     
   parseUrl(url); 
@@ -192,7 +277,60 @@ int processCommand(char* url) {
           result = 1;
           //mystrcpy(processMessage, "unknown code or bits");
         }
-      }else{
+      }
+      else if(type!=NULL && strcmp(type,"Sharp")==0)
+      {
+        char* codeStr = getValueByKey("code");
+        char* bitsStr = getValueByKey("bits");
+        char* repeatStr = getValueByKey("repeat");        
+  
+        int repeat=0;
+        if(repeatStr!=NULL)
+        {
+          repeat= atoi(repeatStr);
+        }
+        
+        if(codeStr!=NULL && bitsStr!=NULL)
+        {
+          unsigned long code = strtoul (codeStr, NULL, 0);
+          int bits= atoi(bitsStr);
+          
+          for(int i=0;i<repeat+1;i++)
+            irsend.sendSharp(code,bits);  
+          //sprintf(printBuffer,"send NEC code:%lu, bits: %d\n",code,bits);          
+          //Serial.println(printBuffer);    
+        }else
+        {
+          result = 1;
+          //mystrcpy(processMessage, "unknown code or bits");
+        }
+      }else if(type!=NULL && strcmp(type,"raw")==0)
+      {
+        char* frequencyStr = getValueByKey("freq");
+        char* codeStr = getValueByKey("code");
+        if(frequencyStr!=NULL && codeStr!=NULL)
+        {
+          int frequency= atoi(frequencyStr);
+          processIRRawData(codeStr);
+          Serial.print("send raw IR, ");
+          //Serial.print("codeLen");
+          //Serial.print(rawCodeLen);
+          //Serial.print(frequency);
+          /*
+          for(int ii=0;ii<rawCodeLen;ii++)
+          {
+            Serial.print(irrawCodes[ii],DEC);
+            Serial.print(" ");            
+          }
+          */
+          //irsend.sendRaw(irrawCodes, rawCodeLen, frequency);          
+        }else
+        {
+          result = 1;          
+        }  
+
+      }
+      else{
          result = 1;
          //mystrcpy(processMessage, "unknow type");
       }
@@ -264,19 +402,23 @@ void mystrcpy(char* dest, char* src)
 /**
  * HTTP Response with homepage
  */
+ /*
 void httpResponseHome(EthernetClient c) {
   c.println("HTTP/1.1 200 OK");
   c.println("Content-Type: text/html");
+  c.println("Cache-Control: no-cache, no-store, must-revalidate");
+  c.println("Pragma: no-cache");
+  c.println("Expires: 0");
   c.println();
   c.println("<html>");
   c.println("<head>");
-  c.println(    "<title>RCSwitch Webserver Demo</title>");
+  c.println(    "<title>RCSwitch Webserver</title>");
   c.println(    "<style>");
   c.println(        "body { font-family: Arial, sans-serif; font-size:12px; }");
   c.println(    "</style>");
   c.println("</head>");
   c.println("<body>");
-  c.println(    "<h1>RCSwitch Webserver Demo</h1>");
+  c.println(    "<h1>RCSwitch Webserver</h1>");
   c.println(    "<ul>");
   c.println(        "<li><a href=\"./?1-on\">Switch #1 on</a></li>");
   c.println(        "<li><a href=\"./?1-off\">Switch #1 off</a></li>");
@@ -287,14 +429,14 @@ void httpResponseHome(EthernetClient c) {
   c.println("</body>");
   c.println("</html>");
 }
-
+*/
 void httpResponse(EthernetClient c, char* msg) {
   c.println("HTTP/1.1 200 OK");
   c.println("Content-Type: text/html");
   c.println();
   c.println("<html>");
   c.println("<head>");
-  c.println(    "<title>RCSwitch Webserver Demo</title>");
+  c.println(    "<title>RCSwitch Webserver</title>");
   c.println(    "<style>");
   c.println(        "body { font-family: Arial, sans-serif; font-size:12px; }");
   c.println(    "</style>");
@@ -341,7 +483,8 @@ void httpServer() {
   EthernetClient client = server.available();
   
   if (client) {
-    char sReturnCommand[128+1];
+    char sReturnCommand[200+1];
+    
     int nCommandPos=-1;
     sReturnCommand[0] = '\0';
     while (client.connected()) {
@@ -351,8 +494,10 @@ void httpServer() {
         if ((c == '\n') || (c == ' ' && nCommandPos>-1)) {
           sReturnCommand[nCommandPos] = '\0';
           if (strcmp(sReturnCommand, "\0") == 0) {
-            httpResponseHome(client);
+            //httpResponseHome(client);
           } else {
+            Serial.println();
+            
             int result = processCommand(sReturnCommand);
             Serial.print("result:");
             Serial.println(result);
@@ -371,7 +516,7 @@ void httpServer() {
           nCommandPos = 0;
         }
       }
-      if (nCommandPos > 128) {
+      if (nCommandPos > 200) {
         httpResponse414(client);
         sReturnCommand[0] = '\0';
         break;
@@ -382,7 +527,8 @@ void httpServer() {
     }
     // give the web browser time to receive the data
     delay(1);
-    client.stop();
+    client.stop();    
+    
     
     return;
   }
