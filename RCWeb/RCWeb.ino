@@ -1,23 +1,28 @@
 /*
-  Web Server
+  Remote Controller Web Server
+
+ A web server that accept URL with parameters using an Arduino Wiznet Ethernet shield.
  
- A simple web server that shows the value of the analog input pins.
- using an Arduino Wiznet Ethernet shield. 
+ Features:
+   can parse dynamic URL parameters
+   support IR and RF APIs 
  
  Circuit:
  * Ethernet shield attached to pins 10, 11, 12, 13
  * Analog inputs attached to pins A0 through A5 (optional)
  
- created 18 Dec 2009
- by David A. Mellis
- modified 9 Apr 2012
- by Tom Igoe
+ created 24 Dec 2014
+ by Jack Ding
+
  
  ==============separator===========
  the limited memory drives me mad. I commented out some html output code to reduce memory usage. 
  Otherwise the code just don't work.
  I am not sure why the compiler does not warn me.
- by Jack
+-jack
+ 
+ 3rd party libs
+ IRremote and RCSwitch are from internet, please search and download, then import to Arduino IDE.
  
  */
 
@@ -27,9 +32,12 @@
 #include <RCSwitch.h>
 
 // Enter a MAC address and IP address for your controller below.
-// The IP address will be dependent on your local network:
+//please change the MAC so that it is unique in your LAN.
+
 byte mac[] = { 
   0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0x01 };
+// The IP address will be dependent on your local network:  
+  //comment out to enbale DHCP.
 //IPAddress ip(192,168,0, 177);
 
 
