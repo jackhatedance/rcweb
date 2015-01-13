@@ -1,33 +1,32 @@
 /*
- Publishing in the callback 
- 
-  - connects to an MQTT server
-  - subscribes to the topic "inTopic"
-  - when a message is received, republishes it to "outTopic"
-  
-  This example shows how to publish messages within the
-  callback function. The callback function header needs to
-  be declared before the PubSubClient constructor and the 
-  actual callback defined afterwards.
-  This ensures the client reference in the callback function
-  is valid.
+
+  a MQTT version of RC device.
   
 */
 
 #include <SPI.h>
 #include <Ethernet.h>
+
+//from https://github.com/knolleary/pubsubclient
 #include <PubSubClient.h>
 
 // Update these with values suitable for your network.
 byte mac[]    = {  0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0x03 };
-byte server[] = { 192, 168, 0, 210 };
-char* serverName = "qa-driverstack-com";
+//byte server[] = { 192, 168, 0, 210 };
+char* server = "qa-driverstack-com";
+
+char* onlineTopic = "/online";
+
+//a unique device ID on target server
+char* DEVICE_ID = "jack-rc-mqtt-1";
+
+
 
 // Callback function header
 void callback(char* topic, byte* payload, unsigned int length);
 
 EthernetClient ethClient;
-PubSubClient client(serverName, 1883, callback, ethClient);
+PubSubClient client(server, 1883, callback, ethClient);
 
 // Callback function
 void callback(char* topic, byte* payload, unsigned int length) {
@@ -45,9 +44,7 @@ void callback(char* topic, byte* payload, unsigned int length) {
   Serial.println(topic);
   
   Serial.print("message:");
-  char* sp;
-  sp = (char*)p;
-  Serial.println(sp);
+  Serial.println((char*)p);
   
   // Free the memory
   free(p);
@@ -58,7 +55,7 @@ void setup()
   Serial.begin(9600);
   Ethernet.begin(mac);
   if (client.connect("arduinoClient")) {
-    client.publish("outTopic","hello world");
+    client.publish("/hello","hello world");
     client.subscribe("inTopic");
   }
 }
