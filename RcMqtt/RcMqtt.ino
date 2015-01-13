@@ -15,7 +15,7 @@ byte mac[]    = {  0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0x03 };
 //byte server[] = { 192, 168, 0, 210 };
 char* server = "qa-driverstack-com";
 
-char* onlineTopic = "/online";
+char* ONLINE_TOPIC = "/online";
 
 //a unique device ID on target server
 char* DEVICE_ID = "jack-rc-mqtt-1";
@@ -55,8 +55,12 @@ void setup()
   Serial.begin(9600);
   Ethernet.begin(mac);
   if (client.connect("arduinoClient")) {
-    client.publish("/hello","hello world");
-    client.subscribe("inTopic");
+    //say hi to server, I am online! if the server is subscribe to this topic, it will be notified
+    client.publish(ONLINE_TOPIC,DEVICE_ID);
+
+    String s="/request/to/device/";
+    //s=s.concat(DEVICE_ID);
+    client.subscribe(s.toCharArray());
   }
 }
 
