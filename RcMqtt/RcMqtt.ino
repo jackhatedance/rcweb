@@ -1,32 +1,42 @@
 /*
-
-  a MQTT version of RC device.
+ Publishing in the callback 
+ 
+  - connects to an MQTT server
+  - subscribes to the topic "inTopic"
+  - when a message is received, republishes it to "outTopic"
+  
+  This example shows how to publish messages within the
+  callback function. The callback function header needs to
+  be declared before the PubSubClient constructor and the 
+  actual callback defined afterwards.
+  This ensures the client reference in the callback function
+  is valid.
   
 */
 
 #include <SPI.h>
 #include <Ethernet.h>
-
-//from https://github.com/knolleary/pubsubclient
 #include <PubSubClient.h>
 
 // Update these with values suitable for your network.
 byte mac[]    = {  0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0x03 };
-//byte server[] = { 192, 168, 0, 210 };
-char* server = "qa-driverstack-com";
+byte server[] = { 192, 168, 0, 210 };
+char* serverName = "snapshot-driverstack-com.dingjianghao.home";
 
-char* ONLINE_TOPIC = "/online";
+char* clientId = "rc-mqtt-jack";
+char* requestToServerTopic = "request/to/yunos/from/123/1";
+char* responseToServerTopic = "response/to/yunos/from/123/1";
+char* subTopic = "request/to/123/from/+/+";
 
-//a unique device ID on target server
-char* DEVICE_ID = "jack-rc-mqtt-1";
-
-
+//last will
+char* willTopic = "will/to/yunos/from/123/1";
+char* willMessage = "offline";
 
 // Callback function header
 void callback(char* topic, byte* payload, unsigned int length);
 
 EthernetClient ethClient;
-PubSubClient client(server, 1883, callback, ethClient);
+PubSubClient client(serverName, 1883, callback, ethClient);
 
 // Callback function
 void callback(char* topic, byte* payload, unsigned int length) {
@@ -35,32 +45,30 @@ void callback(char* topic, byte* payload, unsigned int length) {
   // constructing the PUBLISH packet.
   
   // Allocate the correct amount of memory for the payload copy
-  byte* p = (byte*)malloc(length+1);
-  p[length]=0;
-  // Copy the payload to the new buffer
-  memcpy(p,payload,length);
-  client.publish("outTopic", p, length);
-  Serial.print("topic:");
+  char* result="true";  
+  client.publish(responseToServerTopic, result);
+  Serial.print("received topic:");
   Serial.println(topic);
   
-  Serial.print("message:");
-  Serial.println((char*)p);
-  
-  // Free the memory
-  free(p);
+  //Serial.print(p); 
 }
 
 void setup()
 {
   Serial.begin(9600);
   Ethernet.begin(mac);
-  if (client.connect("arduinoClient")) {
-    //say hi to server, I am online! if the server is subscribe to this topic, it will be notified
-    client.publish(ONLINE_TOPIC,DEVICE_ID);
-
-    String s="/request/to/device/";
-    //s=s.concat(DEVICE_ID);
-    client.subscribe(s.toCharArray());
+   // print your local IP address:
+  Serial.print("My IP address: ");
+  for (byte thisByte = 0; thisByte < 4; thisByte++) {
+    // print the value of each byte of the IP address:
+    Serial.print(Ethernet.localIP()[thisByte], DEC);
+    Serial.print("."); 
+  }
+  Serial.println();
+  
+  if (client.connect(clientId, willTopic, 1, 0, willMessage)) {
+    client.publish(requestToServerTopic,"online");
+    client.subscribe(subTopic);
   }
 }
 
@@ -68,4 +76,3 @@ void loop()
 {
   client.loop();
 }
-
