@@ -13,7 +13,6 @@
   is valid.
   
 */
-
 #include <SPI.h>
 #include <Ethernet.h>
 #include <PubSubClient.h>
@@ -24,12 +23,11 @@
 
 // Update these with values suitable for your network.
 byte mac[]    = {  0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0x03 };
-byte server[] = { 192, 168, 0, 210 };
+//byte server[] = { 192, 168, 0, 210 };
 char* serverName = "snapshot-driverstack-com.dingjianghao.home";
 
 char* clientId = "rc-mqtt-jack";
 char* requestToServerTopic = "request/to/yunos/from/123/1";
-char* responseToServerTopic = "response/to/yunos/from/123/1";
 char* subTopic = "request/to/123/from/+/+";
 
 //last will
@@ -39,7 +37,7 @@ char* willMessage = "offline";
 //URL parameters
 int paramCount = 0;
 int maxParamSize = 6;
-int maxParamLength = 20;
+int maxParamValueLength = 20;
 char keys[6][16];
 char** values;
 
@@ -66,22 +64,44 @@ void callback(char* topic, byte* payload, unsigned int length) {
   // In order to republish this payload, a copy must be made
   // as the orignal payload buffer will be overwritten whilst
   // constructing the PUBLISH packet.
- 
-  // Allocate the correct amount of memory for the payload copy
+  
+  //copy topic
+  char* requestTopic = strdup(topic);
+  
+  // payload copy
   char* message = (char*)malloc(length+1);
   // Copy the payload to the new buffer
   memcpy(message,payload,length);
   message[length]='\0';
+
+  log("requestTopic:");
+  log(requestTopic);
+  
+  log("message:");
+  log(message);
+  
+  char* sessionId = extractSessionId(requestTopic);
+  
+  log("sessionId:");
+  log(sessionId);
   
   int processResult = processCommand(message);
   
   char* result="fail";  
   if(processResult==0)
     result="ok";
-    
-  client.publish(responseToServerTopic, result);
- 
   
+  char* responseTopic = (char*)malloc(40+1);
+  strcpy(responseTopic, "response/to/yunos/from/123/");
+  strcat(responseTopic, sessionId);
+    
+  log(responseTopic);
+  
+  client.publish(responseTopic, result);
+
+  //free memory
+  //free(responseTopic);
+  free(requestTopic);  
   free(message);
   //Serial.print(p); 
 }
@@ -90,8 +110,8 @@ void setup()
 {
   Serial.begin(9600);
   Ethernet.begin(mac);
-  Serial.print("server is at ");
-  Serial.println(Ethernet.localIP());
+  log("server is at ");
+  log(Ethernet.localIP());
   
   if (client.connect(clientId, willTopic, 1, 0, willMessage)) {
     client.publish(requestToServerTopic,"online");
@@ -102,7 +122,7 @@ void setup()
   values = (char**)malloc(maxParamSize * sizeof(char*));
   for (int i = 0; i < maxParamSize-1; i++ )
   {
-    values[i] = (char*) malloc(maxParamLength * sizeof(char));
+    values[i] = (char*) malloc(maxParamValueLength * sizeof(char));
   }
   //only the last param is extra long. (Use extra memory only when required.) it is for IR raw data.
   values[maxParamSize-1] = (char*) malloc(20 * sizeof(char));
@@ -118,6 +138,20 @@ void loop()
   client.loop();
 }
 
+char* extractSessionId(char* topic){
+  const char* delimiter = "/";
+  char* lastToken;
+  char* token;
+  
+  token = strtok(topic, delimiter);
+  while(token!=NULL)
+  {
+    Serial.println(token);
+    lastToken = token;
+    token = strtok(NULL , delimiter);
+  }
+  return lastToken;
+}
 
 void parseUrl(char* s) {
 	int i = 0;
@@ -321,6 +355,7 @@ int processCommand(char* url) {
           int bits= atoi(bitsStr);
           
           for(int i=0;i<repeat+1;i++)
+          ;
             irsend.sendSharp(code,bits);  
           //sprintf(printBuffer,"send NEC code:%lu, bits: %d\n",code,bits);          
           //Serial.println(printBuffer);    
@@ -402,20 +437,8 @@ int processCommand(char* url) {
 
 }
 
-void mystrcpy(char* dest, char* src)
+void log(char* msg)
 {
-  int i=0;
-  while(true)
-  {
-     char c = src[i];
-     dest[i] = c;
-     
-     if(c=='\0')
-       break;     
-    
-    i++;
-  }
-  
+  Serial.println(msg);  
 }
-
 
