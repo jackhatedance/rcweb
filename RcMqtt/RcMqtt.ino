@@ -22,9 +22,10 @@
 #include <RCSwitch.h>
 
 // Update these with values suitable for your network.
-byte mac[]    = {  0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0x03 };
+byte mac[]    = {  0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0x04 };
 //byte server[] = { 192, 168, 0, 210 };
-char* serverName = "snapshot-driverstack-com.dingjianghao.home";
+//char* serverName = "snapshot-driverstack-com.dingjianghao.home";
+char* serverName = "qa-driverstack-com.dingjianghao.home";
 
 char* clientId = "rc-mqtt-jack";
 char* requestToServerTopic = "request/to/yunos/from/123/1";
@@ -109,15 +110,7 @@ void callback(char* topic, byte* payload, unsigned int length) {
 void setup()
 {
   Serial.begin(9600);
-  Ethernet.begin(mac);
-  log("server is at ");
-  log(Ethernet.localIP());
   
-  if (client.connect(clientId, willTopic, 1, 0, willMessage)) {
-    client.publish(requestToServerTopic,"online");
-    client.subscribe(subTopic);
-  }
-    
   //init array  
   values = (char**)malloc(maxParamSize * sizeof(char*));
   for (int i = 0; i < maxParamSize-1; i++ )
@@ -135,7 +128,37 @@ void setup()
 
 void loop()
 {
+  if(!client.connected())
+  {
+    //auto reconnect to mqtt broker.
+    //dhcp and subscribe to mqtt broker
+    connect();
+  }
+  
   client.loop();
+}
+
+void connect()
+{
+  log("try connecting to mqtt broker...");
+  if (Ethernet.begin(mac) == 0) {
+    Serial.println("Failed to configure Ethernet using DHCP");
+    delay(1000*10);
+  }
+  else{
+       Serial.print("My IP address: ");
+      for (byte thisByte = 0; thisByte < 4; thisByte++) {
+        // print the value of each byte of the IP address:
+        Serial.print(Ethernet.localIP()[thisByte], DEC);
+        Serial.print("."); 
+      }
+      Serial.println();
+      
+      if (client.connect(clientId, willTopic, 1, 0, willMessage)) {
+        client.publish(requestToServerTopic,"online");
+        client.subscribe(subTopic);
+      }
+  }
 }
 
 char* extractSessionId(char* topic){
