@@ -27,18 +27,20 @@ byte mac[]    = {  0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0x04 };
 //char* serverName = "snapshot-driverstack-com.dingjianghao.home";
 char* serverName = "qa-driverstack-com.dingjianghao.home";
 
-char* clientId = "rc-mqtt-jack";
-char* requestToServerTopic = "request/to/yunos/from/123/1";
-char* subTopic = "request/to/123/from/+/+";
+char* clientId = "jackding-1";
+char requestToServerTopic[100] ;
+char subTopic[100];
+char responseToServerTopic[100];
 
 //last will
-char* willTopic = "will/to/yunos/from/123/1";
+char willTopic[60];
 char* willMessage = "offline";
 
 //URL parameters
 int paramCount = 0;
-int maxParamSize = 6;
-int maxParamValueLength = 20;
+
+const int maxParamSize = 6;
+const int maxParamValueLength = 20;
 char keys[6][16];
 char** values;
 
@@ -92,13 +94,10 @@ void callback(char* topic, byte* payload, unsigned int length) {
   if(processResult==0)
     result="ok";
   
-  char* responseTopic = (char*)malloc(40+1);
-  strcpy(responseTopic, "response/to/yunos/from/123/");
-  strcat(responseTopic, sessionId);
-    
-  log(responseTopic);
+  sprintf(responseToServerTopic,"response/to/yunos/from/%s/%s", clientId, sessionId);
+  log(responseToServerTopic);
   
-  client.publish(responseTopic, result);
+  client.publish(responseToServerTopic, result);
 
   //free memory
   //free(responseTopic);
@@ -124,6 +123,11 @@ void setup()
   
   // Transmitter is connected to Arduino Pin #10  
   mySwitch.enableTransmit(10);
+  
+  //init mqtt var
+  sprintf(requestToServerTopic, "request/to/yunos/from/%s/1",clientId);
+  sprintf(subTopic, "request/to/%s/from/+/+", clientId);
+  sprintf(willTopic, "will/to/yunos/from/%s/1", clientId);
 }
 
 void loop()
@@ -154,7 +158,7 @@ void connect()
       }
       Serial.println();
       
-      if (client.connect(clientId, willTopic, 1, 0, willMessage)) {
+      if (client.connect(clientId, willTopic, 1, 0, willMessage)) {        
         client.publish(requestToServerTopic,"online");
         client.subscribe(subTopic);
       }
@@ -195,7 +199,10 @@ void parseUrl(char* s) {
 			//end the current string
 			currentString[charIndex] = '\0';
 
-			//go to next param
+                        //print current value
+                        Serial.println(currentString);
+			
+                        //go to next param
 			paramIndex++;
 			charIndex = 0;
 			i++;
@@ -206,7 +213,12 @@ void parseUrl(char* s) {
 
 			if (c == '=') {
                                 currentString[charIndex]='\0';
-				//key to value
+			      
+                                //print current key
+                                Serial.print(currentString);
+                                Serial.print("=");
+			
+                        	//key to value
 				currentString = values[paramIndex];
 				charIndex = 0;
 			} else {
@@ -224,6 +236,7 @@ void parseUrl(char* s) {
 
 	paramCount = paramIndex + 1;
 
+        Serial.println("");
 
 }
 
@@ -331,7 +344,7 @@ int processCommand(char* url) {
   parseUrl(url); 
   
   
-  printParam();
+  //printParam();
   
 //RC type: 38k,315m,433m.
   char* cmd = getValueByKey("cmd");
