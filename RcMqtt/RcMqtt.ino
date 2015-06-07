@@ -94,7 +94,7 @@ void callback(char* topic, byte* payload, unsigned int length) {
   if(processResult==0)
     result="ok";
   
-  sprintf(responseToServerTopic,"response/to/yunos/from/%s/%s", clientId, sessionId);
+  sprintf(responseToServerTopic,"ds/response/to/yunos/from/%s/%s", clientId, sessionId);
   log(responseToServerTopic);
   
   client.publish(responseToServerTopic, result);
@@ -125,9 +125,9 @@ void setup()
   mySwitch.enableTransmit(10);
   
   //init mqtt var
-  sprintf(requestToServerTopic, "request/to/yunos/from/%s/1",clientId);
-  sprintf(subTopic, "request/to/%s/from/+/+", clientId);
-  sprintf(willTopic, "will/to/yunos/from/%s/1", clientId);
+  sprintf(requestToServerTopic, "ds/request/to/yunos/from/%s/1",clientId);
+  sprintf(subTopic, "ds/request/to/%s/from/+/+", clientId);
+  sprintf(willTopic, "ds/will/to/yunos/from/%s/1", clientId);
 }
 
 void loop()
