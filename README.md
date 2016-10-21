@@ -8,7 +8,9 @@ The MQTT version need the lib from https://github.com/knolleary/pubsubclient.
 
 Under Linux environment, install mqtt software(mosquitto) and observe the messages, once the arduino board is started, it will send message to mqtt server(broker) as below,
 
-$ mosquitto_sub -t "#" -v
-ds/request/to/yunos/from/tianhu-rc-1/1 online
-ds/will/to/yunos/from/tianhu-rc-1/1 offline
-ds/request/to/yunos/from/tianhu-rc-1/1 online
+<pre>
+ $ mosquitto_sub -t "#" -v
+ ds/request/to/yunos/from/tianhu-rc-1/1 online
+ ds/will/to/yunos/from/tianhu-rc-1/1 offline
+ ds/request/to/yunos/from/tianhu-rc-1/1 online
+</pre>
