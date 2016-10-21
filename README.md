@@ -4,3 +4,4 @@ it accept command from HTTP request and transmit radio sigals to remote-controll
 Currently it support IR(38khz) and 315/433Mhz radio frequency. respectively, IRRemote and RCSwitch libraries are used.
 
 
+The MQTT version need the lib from https://github.com/knolleary/pubsubclient.
